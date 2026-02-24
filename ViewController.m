@@ -17,6 +17,13 @@
 @property (nonatomic, strong) NSTextField *scoreLabel;
 @property (nonatomic, assign) NSInteger selectedRow;  // -1 = not selected
 @property (nonatomic, assign) NSInteger selectedCol;
+
+@property (nonatomic, strong) NSButton *startButton;
+@property (nonatomic, strong) NSTextField *timerLabel;
+@property (nonatomic, strong) NSTimer *timer;
+@property (nonatomic, assign) NSInteger timeLeft;
+@property (nonatomic, assign) BOOL gameActive;
+
 @end
 
 
@@ -59,8 +66,58 @@
     self.scoreLabel.frame = CGRectMake(0, BOARD_SIZE * TILE_SIZE + 10, 200, 30);
     self.scoreLabel.font = [NSFont boldSystemFontOfSize:18];
     [self.view addSubview:self.scoreLabel];
+    
+    // Start Button
+    self.startButton = [NSButton buttonWithTitle:@"Start" target:self action:@selector(startGame)];
+    self.startButton.frame = CGRectMake(220, BOARD_SIZE * TILE_SIZE + 10, 100, 30);
+    [self.view addSubview:self.startButton];
+    
+    //Time left
+    self.timerLabel = [NSTextField labelWithString:@"20s"];
+    self.timerLabel.frame = CGRectMake(0, BOARD_SIZE * TILE_SIZE + 50, 200, 30);
+    self.timerLabel.font = [NSFont boldSystemFontOfSize:18];
+    [self.view addSubview:self.timerLabel];
 
     [self renderBoard];
+}
+
+// Start/Reset Timer label
+- (void)startGame {
+    self.board = [[GameBoard alloc] init];
+    self.timeLeft = 20;
+    self.gameActive = YES;
+    [self renderBoard];
+    [self updateScore];
+    self.timerLabel.stringValue = @"20s";
+    [self.timer invalidate];  // 停掉旧的timer
+    self.timer = [NSTimer scheduledTimerWithTimeInterval:1.0 target:self selector:@selector(tick) userInfo:nil repeats:YES];
+}
+
+// chaque seconde
+- (void)tick {
+    self.timeLeft--;
+    self.timerLabel.stringValue = [NSString stringWithFormat:@"%lds", self.timeLeft];
+    if (self.timeLeft <= 0) {
+        [self endGame];
+    }
+}
+
+- (void)endGame {
+    [self.timer invalidate];
+    self.timer = nil;
+    self.gameActive = NO;
+    self.timerLabel.stringValue = @"Fini!";
+    // Final score
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"Partie terminée!";
+    alert.informativeText = [NSString stringWithFormat:@"Score final: %ld", self.board.score];
+    [alert addButtonWithTitle:@"Rejouer"];
+    [alert addButtonWithTitle:@"Terminer"];
+    [alert runModal];
+    NSModalResponse response = [alert runModal];
+    if (response == NSAlertFirstButtonReturn) {
+        [self startGame];  // pour Rejouer
+    }
 }
 
 
@@ -85,6 +142,7 @@
 // sinon : annule le hightlight，et trySwap，Swap(Change)Reussie
 // alors resolve+render+updateScore，reset -1
 - (void)caseTapped:(CaseView *)sender {
+    if (!self.gameActive) return; //ne peut pas cliquer si game non start
     if (self.selectedRow == -1) {
         self.selectedRow = sender.row;
         self.selectedCol = sender.col;
